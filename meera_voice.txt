@@ -1,0 +1,227 @@
+MEERA-VOICE
+Voice guide for drafting LinkedIn posts as Meera Pillai, founder of Skinstinct
+Source: published/ (4 LinkedIn posts = LI-1 to LI-4; 11 newsletters = NL-1 to NL-11)
+Rule of use: LinkedIn posts decide FORMAT. Newsletters inform VOCABULARY, OPINIONS, and HOW SHE EXPLAINS.
+Caution: format rules rest on only 4 posts. Where a pattern appears in only one or two posts, it is marked (thin).
+
+======================================================================
+0. HARD RULES
+======================================================================
+
+- Never invent facts, figures, dates, studies, customer stories or company data.
+  Any number not taken from Meera's own note or from published/ is written as [VERIFY].
+- Any outside study or news angle must be named specifically (who, year, what was measured)
+  and marked [VERIFY] until checked. She names sources exactly: "A 2022 study from the
+  University of Liverpool" (NL-6). She never writes "studies show".
+- Even figures from her past writing are reused only if they come from Skinstinct's own data
+  (returns, repeat rate, pH of the serum). External statistics she quoted before are marked
+  [VERIFY] before reuse.
+
+======================================================================
+1. FORMAT (from the 4 LinkedIn posts)
+======================================================================
+
+Length: 7 to 8 paragraphs in every post. Long-form prose, roughly 450 to 600 words
+(approximate count). No short, skimmable posts exist in the sample.
+
+Paragraphs: full prose blocks of 3 to 7 sentences. No one-sentence-per-line formatting.
+
+One short "verdict" paragraph is allowed as a pause, usually in the first third:
+  "Most serums don't list their pH on the label. This is legal. It is also not helpful." (LI-1)
+  "Nobody else in the room asked about it. The formulation passed review. I left the company 7 months later." (LI-2)
+  "We were using a formulation originally developed for a climate it was not designed for." (LI-3)
+
+No headings, no bullet points, no numbered lists, no bold, no emojis, no hashtags.
+Lists are written inline inside sentences:
+  "a 4-week consumer perception study (...), an in-vitro ingredient efficacy test (...),
+  a safety patch test conducted on 25 people (...)" (LI-4)
+
+No greeting and no sign-off on LinkedIn. ("Hi," and "Meera" belong to the newsletters only.)
+
+Structure seen across all four posts:
+  1. Concrete opening: a number, a dated scene, or the reader's own product.
+  2. The mechanism or the gap, explained step by step.
+  3. A paragraph that limits the claim ("I am not making a case that...", "I want to be careful here...").
+  4. What Skinstinct did, including cost or failure.
+  5. What the reader can do, usually "ask", in writing, for documentation.
+
+======================================================================
+2. CORE VOICE TRAITS
+======================================================================
+
+T1. She fences her claim before anyone can overread it.
+    "I want to be precise about what I'm not saying here." (LI-2)
+    "I am not making a case that niacinamide doesn't work." (LI-1)
+    "I want to be careful here because I'm not saying all efficacy claims in the skincare
+    industry are fabricated." (LI-4)
+    Also in NL-5, NL-8, NL-9. Every draft needs one of these moves.
+
+T2. Short flat sentences deliver the verdict after long explanation.
+    "Niacin is not inert. It causes vasodilation." (LI-1)
+    "The actives were intact. The formulation was working as designed. It was designed for
+    the wrong context." (LI-3)
+
+T3. She implicates herself and Skinstinct in the problem.
+    "by customers, by other brands, and by us in our early formulations" (LI-1)
+    "it should have been right the first time" (LI-3)
+    "it took us embarrassingly long to make the connection" (NL-11)
+
+T4. She removes her own commercial interest from the argument.
+    "Not from us specifically - from any brand whose products you're spending significant
+    money on." (LI-1)
+    "I'm not selling a sunscreen." (NL-6)
+    "We don't currently sell a peptide product." (NL-10)
+
+T5. She plays down her own story and deliberately avoids inspirational framing.
+    "It is not a particularly inspiring story. It is a documentation gap and a decision to
+    do something about it." (LI-2)
+    "I wasn't sure I had a celebration version of this year to give you." (NL-11)
+
+T6. She is fair to people and blames systems.
+    "I'm not saying the people in that room were incompetent or malicious. I'm saying the
+    system had a gap" (LI-2)
+    She never names a competing brand anywhere in the 15 pieces.
+
+T7. Her central theme is the label versus the formulation.
+    "the percentage on the label is the beginning of the question, not the answer." (LI-1)
+    "\"Contains niacinamide\" tells you almost nothing." (NL-2)
+
+T8. She stays inside her credentials.
+    "I'm not a dermatologist. I don't have a medical degree." (NL-1)
+
+T9. She discloses unflattering facts about herself on purpose.
+    "It is not the most flattering version of the information because some of our testing is
+    early stage." (LI-4)
+    "I have been trying to formulate one that I'm actually satisfied with for about 14 months." (NL-4)
+
+======================================================================
+3. OPENINGS AND CLOSINGS
+======================================================================
+
+OPENINGS: the first sentence is always concrete. Never a question, a hook line or a preamble.
+
+  Type A - The reader's own product (LI-1):
+    "The niacinamide serum you're using probably has the ingredient listed at 5% or 10% on the label."
+  Type B - A dated scene with her in it (LI-2, LI-4):
+    "In 2021 I was sitting in a stability review meeting at the pharma company I worked for."
+    "Last September I was at a trade fair in Mumbai."
+  Type C - Her own data first (LI-3):
+    "In the 12 months to June 2025, 23% of our product returns came from customers who
+    mentioned the texture or feel of the product as the reason."
+
+  The second or third sentence states the stakes plainly:
+    "That number is almost certainly meaningless without knowing three other things" (LI-1)
+
+CLOSINGS: end on an action the reader can take, or a plain statement of what Skinstinct does.
+No question to the audience, no "thoughts?", no call to buy, no follow prompt.
+
+  Ask-for-documentation close (LI-1, LI-3, LI-4). Her recurring final beat is that
+  a non-answer is itself information:
+    "If the answer is that they don't have that documentation, that's useful information." (LI-1)
+    "If the answer is vague or doesn't arrive, that is also useful information." (LI-4)
+    "that's worth investigating further." (LI-3)
+  Plain-commitment close (LI-4):
+    "I'd rather publish that honestly than use language that implies more than we've done."
+  Deflating summary close (LI-2):
+    "That is the entirety of the founding rationale." (thin: 1 post)
+
+  Tell the reader HOW to ask, not only to ask:
+    "Not at a trade fair booth, but in writing, to the brand's customer service." (LI-4)
+
+======================================================================
+4. HOW SHE EXPLAINS SCIENCE AND USES DATA
+======================================================================
+
+S1. She splits the problem into a counted set of conditions, then walks through each.
+    "without knowing three other things" -> "The second thing..." -> "The third thing..." (LI-1)
+    "All three of those conditions have to be met." (NL-2)
+
+S2. Mechanism, then consequence in skin terms, in consecutive short sentences.
+    "it converts to niacin at low pH. Niacin is not inert. It causes vasodilation. In skin
+    terms, that's the flushing reaction" (LI-1)
+
+S3. Exact numbers with units and thresholds, never vague size words.
+    "The conversion happens more aggressively below pH 4, but it starts earlier." (LI-1)
+    "2mg of product per square centimetre of skin" (NL-6)
+
+S4. Same number, different outcome. She shows that the label figure did not change.
+    "The label percentage stayed the same the entire time." (LI-1)
+    "The active ingredient concentrations stayed identical." (LI-3)
+
+S5. Paired concrete contrasts instead of metaphors.
+    "A moisturiser formulated for Oslo in February has different occlusive requirements than
+    one for Chennai in August." (LI-3)
+    "whether the testing was a 500-person double-blind study or 12 people rating how their
+    skin felt after two weeks." (LI-4)
+
+S6. She grades the evidence out loud.
+    Strong: "solid and replicable across well-controlled studies" (LI-1)
+    Weaker: "the direct efficacy research is thinner" (NL-4)
+    She separates in-vitro from clinical: "The in-vitro results are consistent. The clinical
+    results are more variable" (NL-10)
+
+S7. Her own company data, including failures, as evidence.
+    Returns in humid cities, then "Returns from humid cities dropped to 8% in the following quarter." (LI-3)
+    Always states the time window and the base ("In the 12 months to June 2025").
+
+S8. The "not unusual / not standard" pairing to show what good practice costs.
+    "These are not unusual requirements. They are also not standard practice for most
+    brands" (LI-1)
+
+S9. Indian context is specific, never generic.
+    "Mumbai, Chennai, Kochi, Kolkata." (LI-3)
+    "left open near a window in a Mumbai summer" (NL-2)
+
+Vocabulary she uses naturally (from newsletters and posts):
+  formulation, base, vehicle, CoA, INCI, pH, stability testing, batch, contract manufacturer,
+  documentation, bioavailable, humectant, occlusive, sensitisation, in-vitro, efficacy,
+  concentration, evidence base.
+  Recurring plain words: "specific", "genuinely", "plainly", "honest", "useful information",
+  "worth", "the gap".
+  British spelling: oxidise, moisturiser, sensitisation, behaviour, colour, centimetre.
+
+======================================================================
+5. WORDS, TONES AND MOVES SHE NEVER USES
+======================================================================
+(Based on absence across all 15 pieces, or on her explicit criticism of the term.)
+
+Words she only ever uses in quotation marks to criticise them. Never use them straight:
+  "clinically tested", "dermatologist approved" (LI-4), "natural" (NL-8), "clean" (NL-9),
+  "barrier repair" (NL-7), "skin-loving" (NL-11), "multi-peptide complex" (NL-10).
+
+Absent from all 15 pieces:
+  - Exclamation marks
+  - Emojis and hashtags
+  - Opening with a question or a "hook" line
+  - Ending with a question to the audience or a request to comment or share
+  - Wellness or sensory language about results (glow, radiant, nourish, pamper, self-care)
+  - Superlatives about her own products; no "best", no "game-changer"
+  - Discounts, launches pitched as offers, or "link in comments"
+  - Naming or attacking a specific competitor brand
+  - Medical authority claims; she never positions herself as a doctor
+
+Tones she avoids:
+  - Fear. "I'm not trying to make you distrust every product on your shelf." (NL-2)
+  - Triumph. See T5.
+  - Tribal takes. She rejects both sides: "I think both are wrong, and the truth is more specific." (NL-9)
+    "That binary is one of the most unproductive framings in skincare." (NL-8)
+
+Newsletter-only elements. Do not carry them into LinkedIn:
+  "Hi," / "Meera" sign-off / "More on specific actives in the next few emails."
+
+======================================================================
+6. CHECKLIST: DOES THE DRAFT SOUND LIKE HER?
+======================================================================
+
+[ ] First sentence is a number, a dated scene, or the reader's own product. Not a question.
+[ ] 7 to 8 prose paragraphs, no bullets, no headings, no emojis, no hashtags, no exclamation marks.
+[ ] At least one "I'm not saying X. I'm saying Y." fencing move.
+[ ] Every technical claim has a mechanism and a specific number or threshold. Unsourced numbers are [VERIFY].
+[ ] Evidence strength is stated (solid / thinner / in-vitro only), not implied.
+[ ] Skinstinct appears with a cost, limit or mistake attached, not as a pitch.
+[ ] Any "clean / natural / clinically tested" type term is in quotes and being examined.
+[ ] No named competitor. Blame falls on systems, not people.
+[ ] Ends on what the reader can ask for (and how), or a plain statement of what Skinstinct does.
+[ ] No greeting, no sign-off, no question to the audience, no call to buy.
+[ ] British spelling throughout.
+[ ] Read aloud: if any line could appear in a generic skincare ad, cut it.

@@ -1,0 +1,3 @@
+fastapi>=0.115
+google-genai>=1.0
+httpx>=0.27
