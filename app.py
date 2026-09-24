@@ -1,24 +1,32 @@
 """Vercel entrypoint: Telegram webhook that turns Meera's notes into LinkedIn drafts.
 
-Telegram POSTs each message to /api/telegram. The handler transcribes voice notes,
-asks Gemini for a draft, and replies in the same chat. It never posts anywhere.
+Telegram POSTs each message to /api/telegram. For each note the handler:
+transcribes (voice) -> triages the note 0-10 -> looks for a Google News hook ->
+drafts the post -> scores the draft on 7 criteria and attaches news sources.
+It replies in the same chat and never posts anywhere.
 """
 
 import hmac
+import html
 import logging
 import os
+import re
 from collections import deque
 from typing import Optional
 
 import httpx
 from fastapi import FastAPI, Request, Response
 
-from drafting import DraftError, transcribe, write_draft
+from drafting import CRITERIA, DraftError, overall, score_draft, transcribe, triage, write_draft
+from news import search_news
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 _allowed = os.environ.get("ALLOWED_TELEGRAM_USER_ID", "").strip()
 ALLOWED_USER_ID = int(_allowed) if _allowed.isdigit() else None
+TRIAGE_MIN_SCORE = int(os.environ.get("TRIAGE_MIN_SCORE", "5"))
+FORCE_WORDS = {"draft anyway", "draft it anyway", "force"}
+TRANSCRIPT_PREFIX = "Transcript:\n\n"
 TELEGRAM_LIMIT = 4096
 MAX_AUDIO_BYTES = 20 * 1024 * 1024  # Telegram bots can't download files larger than 20 MB.
 
@@ -45,6 +53,17 @@ class Telegram:
         if not data.get("ok"):
             raise RuntimeError(f"Telegram {method} failed: {data.get('description')}")
         return data["result"]
+
+    async def send_html(self, chat_id: int, text: str) -> None:
+        """Send one short HTML-formatted message (used for the scorecard, so links can be clickable)."""
+        try:
+            await self.call("sendMessage", chat_id=chat_id, text=text[:TELEGRAM_LIMIT], parse_mode="HTML",
+                            link_preview_options={"is_disabled": True})
+        except RuntimeError:
+            # If Telegram rejects the markup, fall back to plain text rather than losing the scorecard.
+            log.exception("HTML message rejected")
+            plain = html.unescape(re.sub(r"<[^>]+>", "", text))
+            await self.send(chat_id, plain)
 
     async def send(self, chat_id: int, text: str) -> None:
         """Send text, splitting on paragraph breaks if it exceeds Telegram's message limit."""
@@ -77,6 +96,33 @@ class Telegram:
         return r.content
 
 
+async def build_report(note: str, draft, news) -> str:
+    esc = html.escape
+    lines = []
+    try:
+        card = await score_draft(note, draft.post)
+        lines.append(f"<b>Draft score: {overall(card)}/10</b>")
+        for key, label in CRITERIA:
+            criterion = getattr(card, key)
+            lines.append(f"{esc(label)}: <b>{criterion.score}</b>/10. {esc(criterion.note)}")
+        if card.unsupported_claims:
+            lines.append("\n<b>Not in the note, check these:</b>")
+            lines += [f"• {esc(claim)}" for claim in card.unsupported_claims]
+    except DraftError as e:
+        lines.append(esc(str(e)))
+    if draft.news_hook_used:
+        by_id = {item.id: item for item in news}
+        lines.append("\n<b>News hook sources</b> (cross-check before publishing):")
+        for n, source_id in enumerate(draft.source_ids, start=1):
+            item = by_id[source_id]
+            link = html.escape(item.link, quote=True)
+            lines.append(f'{n}. <a href="{link}">{esc(item.title)}</a>\n    {esc(item.publisher)}, {esc(item.date)}')
+    else:
+        lines.append("\nNo news hook used.")
+    lines.append("\nResolve every [VERIFY] before posting on LinkedIn.")
+    return "\n".join(lines)
+
+
 async def handle_message(tg: Telegram, message: dict) -> None:
     chat_id = message["chat"]["id"]
     text: Optional[str] = message.get("text")
@@ -85,13 +131,16 @@ async def handle_message(tg: Telegram, message: dict) -> None:
     if text and text.startswith("/"):
         await tg.send(
             chat_id,
-            "Send me a voice note or a text note and I'll reply with a LinkedIn draft in Meera's voice. "
-            "Nothing is posted anywhere.",
+            "Send me a voice note or a text note and I'll reply with a scored LinkedIn draft in Meera's voice. "
+            "Nothing is posted anywhere.\n\n"
+            f"Notes that score below {TRIAGE_MIN_SCORE}/10 at triage aren't drafted. To draft one anyway, "
+            "reply to the note (or to its transcript) with: draft anyway",
         )
         return
 
     await tg.typing(chat_id)
     try:
+        forced = False
         if audio:
             if audio.get("file_size", 0) > MAX_AUDIO_BYTES:
                 raise DraftError("That audio file is over 20 MB, which Telegram won't let bots download. Send a shorter note.")
@@ -102,18 +151,48 @@ async def handle_message(tg: Telegram, message: dict) -> None:
                 log.exception("Telegram download failed")
                 raise DraftError("Could not download the voice note from Telegram. Try sending it again.")
             note = await transcribe(data, audio.get("mime_type") or "audio/ogg")
-            await tg.send(chat_id, f"Transcript:\n\n{note}")
+            await tg.send(chat_id, TRANSCRIPT_PREFIX + note)
+        elif text and text.strip().lower() in FORCE_WORDS:
+            original = (message.get("reply_to_message") or {}).get("text") or ""
+            note = original[len(TRANSCRIPT_PREFIX):] if original.startswith(TRANSCRIPT_PREFIX) else original
+            if not note.strip():
+                await tg.send(chat_id, "To force a draft, reply to the note or its transcript with: draft anyway")
+                return
+            forced = True
         elif text:
             note = text.strip()
         else:
             await tg.send(chat_id, "I can only work with voice notes, audio files and text messages.")
             return
 
-        await tg.send(chat_id, "Writing the draft. This can take a minute...")
+        # 1. Triage (Gemini Flash): is this note worth drafting, and is there a news angle?
         await tg.typing(chat_id)
-        draft = await write_draft(note)
-        await tg.send(chat_id, draft)
-        await tg.send(chat_id, "That's the draft. Review and edit before posting on LinkedIn.")
+        check = await triage(note)
+        verdict = f"Triage: {check.score}/10. {check.reason}"
+        if check.score < TRIAGE_MIN_SCORE and not forced:
+            tip = f" {check.missing}" if check.missing else ""
+            await tg.send(
+                chat_id,
+                f"{verdict}\n\nNot drafted: below the {TRIAGE_MIN_SCORE}/10 bar.{tip}\n\n"
+                "To draft it anyway, reply to your note (or its transcript) with: draft anyway",
+            )
+            return
+
+        # 2. Context (Google News): recent headlines that could serve as a hook.
+        news = await search_news(check.news_query) if check.news_query else []
+        if check.news_query:
+            found = f"{len(news)} headlines found" if news else "nothing found, drafting without a hook"
+            verdict += f'\nNews search: "{check.news_query}" ({found})'
+        await tg.send(chat_id, f"{verdict}\n\nWriting the draft. This can take a minute...")
+
+        # 3. Draft in Meera's voice.
+        await tg.typing(chat_id)
+        draft = await write_draft(note, news)
+        await tg.send(chat_id, draft.post)
+
+        # 4. Score the draft against the voice guide, and attach sources for any news hook.
+        await tg.typing(chat_id)
+        await tg.send_html(chat_id, await build_report(note, draft, news))
     except DraftError as e:
         log.warning("%s", e)
         await tg.send(chat_id, str(e))

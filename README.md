@@ -1,24 +1,53 @@
 # Skinstinct content bot
 
-A Telegram bot, hosted on Vercel, that turns Meera Pillai's voice notes and text notes into LinkedIn post drafts in her voice. It uses Google Gemini for transcription and drafting.
+A Telegram bot, hosted on Vercel, that turns Meera Pillai's voice notes and text notes into scored LinkedIn post drafts in her voice. It uses Google Gemini and Google News.
 
-1. Meera sends the bot a voice note or a text message.
-2. Telegram forwards the message to this app on Vercel (a webhook).
-3. Gemini transcribes voice notes. The bot sends the transcript back so she can check it.
-4. Gemini writes one LinkedIn post, using `meera_voice.txt` as its instructions.
-5. The bot replies in the same chat with the draft.
+## How a note flows
 
-The bot **never posts to LinkedIn**. Meera reviews and publishes drafts herself. Only the Telegram user in `ALLOWED_TELEGRAM_USER_ID` gets replies. Messages from anyone else are ignored.
+| Step | Who | What happens |
+| --- | --- | --- |
+| Trigger | Meera | Sends a voice note or text message to the bot in Telegram. |
+| Input | Telegram + Gemini Flash | Telegram forwards it to this app. Voice notes are transcribed and the transcript is sent back. |
+| Processing | Gemini Flash (triage) | Scores the note 0 to 10 for publishability. Below `TRIAGE_MIN_SCORE` (default 5), the bot replies with the reason and what's missing, and stops. It also suggests a Google News search. |
+| Context | Google News | Searches recent headlines (India edition, last 30 days first) for a timely hook. |
+| AI | Gemini Pro (draft) | Writes one post in Meera's voice (`meera_voice.txt`). It uses a headline as a hook only if one genuinely fits. |
+| AI | Gemini Pro (scorecard) | Scores the draft on 7 fixed criteria and lists any claims the note doesn't support. |
+| Output | Meera (review gate) | Reviews, edits, and publishes on LinkedIn herself. **The bot never posts.** |
+
+Only the Telegram user in `ALLOWED_TELEGRAM_USER_ID` gets replies. Messages from anyone else are ignored.
+
+**Forcing a low-scoring note:** reply to the note, or to its transcript, with `draft anyway`.
+
+### What Meera receives for each note
+
+1. The transcript (voice notes only).
+2. The triage score, its reason, and the news search used.
+3. The draft, as a message on its own so it's easy to copy.
+4. A scorecard:
+   - **Draft score** out of 10: the average of the 7 criteria below.
+   - **7 criteria**, each scored 0 to 10 with a one-line reason. They're taken from the checklist in the voice guide:
+     1. **Opening**: the first sentence is concrete (a number, a dated scene, or the reader's product), not a question.
+     2. **Format**: 7 to 8 prose paragraphs, 450 to 600 words, with no bullets, emojis, hashtags, exclamation marks, greeting or sign-off.
+     3. **Claim fencing**: at least one "I'm not saying X. I'm saying Y." move.
+     4. **Evidence and accuracy**: a mechanism and a specific number for each claim, stated evidence strength, `[VERIFY]` on anything not in the note, and nothing invented.
+     5. **Skinstinct honesty**: a cost, limit or mistake rather than a pitch, no named competitors, and blame on systems rather than people.
+     6. **Voice and language**: British spelling, no hype or wellness words, and terms like "clean" only in quotes.
+     7. **Closing**: tells the reader what to ask for and how; no question to the audience and no call to buy.
+   - **"Not in the note, check these"**: any claim about Skinstinct or Meera that the note didn't contain and that isn't marked `[VERIFY]`.
+   - **News hook sources**: when a news hook is used, the 2 most relevant articles as clickable headlines, with publisher and date, so Meera can cross-check them.
+
+Word count, paragraph count, exclamation marks, hashtags, list lines and `[VERIFY]` markers are counted in code and given to the scorer, so the format score doesn't depend on the model counting. Scoring runs at temperature 0 on Gemini Pro. In testing, the same draft got the same score on repeated runs.
 
 ## Files
 
 | File | What it does |
 | --- | --- |
 | `app.py` | The Vercel entrypoint (FastAPI). Receives Telegram messages at `/api/telegram` and replies. `/` is a health check. |
-| `drafting.py` | The Gemini calls: transcription and drafting, including the drafting instructions. |
+| `drafting.py` | The Gemini calls: transcription, triage, drafting and scoring, including all the prompts and the scoring criteria. |
+| `news.py` | Google News search for the hook. |
 | `meera_voice.txt` | The voice guide. Edit it to change the voice, then redeploy. |
 | `scripts/set_webhook.py` | One-off script that tells Telegram where the app lives. |
-| `vercel.json` | Allows each request up to 300 seconds (a draft usually takes 30 to 60). |
+| `vercel.json` | Allows each request up to 300 seconds (a note usually takes 60 to 90 seconds end to end). |
 | `requirements.txt`, `.python-version` | Dependencies and Python 3.12 for Vercel. |
 | `.env.example` | The environment variables the app needs. |
 
@@ -30,8 +59,10 @@ The bot **never posts to LinkedIn**. Meera reviews and publishes drafts herself.
 | `GEMINI_API_KEY` | From https://aistudio.google.com/apikey |
 | `ALLOWED_TELEGRAM_USER_ID` | Numeric Telegram ID of the one person allowed to use the bot (@userinfobot tells you yours) |
 | `TELEGRAM_WEBHOOK_SECRET` | A long random string. Telegram sends it with every message, so the app knows the request is real. Generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` |
-| `GEMINI_DRAFT_MODEL` (optional) | Defaults to `gemini-pro-latest` |
-| `GEMINI_TRANSCRIBE_MODEL` (optional) | Defaults to `gemini-flash-latest` |
+| `TRIAGE_MIN_SCORE` (optional) | Notes below this triage score aren't drafted. Defaults to `5` |
+| `GEMINI_DRAFT_MODEL` (optional) | Drafting model. Defaults to `gemini-pro-latest` |
+| `GEMINI_SCORE_MODEL` (optional) | Scorecard model. Defaults to `gemini-pro-latest` |
+| `GEMINI_FAST_MODEL` (optional) | Transcription and triage model. Defaults to `gemini-flash-latest` |
 
 ## Deploy
 
@@ -80,4 +111,8 @@ It should print `Webhook was set`. Send the bot a message in Telegram and the dr
 
 ## Reviewing drafts
 
-Anything not stated in the note is marked `[VERIFY]` or left as a `[VERIFY: ...]` placeholder. Resolve every one before publishing. Gemini can still slip in a plausible detail that wasn't in the note, so read each draft against the original note.
+- Resolve every `[VERIFY]` before publishing.
+- Treat the **"Not in the note, check these"** list seriously. Gemini sometimes adds plausible Skinstinct details, and the scorer flags the ones it can find.
+- News hooks are chosen from **headlines only**. Open both sources and confirm the story says what the post claims.
+- Google News links go through a Google redirect to the publisher's article.
+- The Google News RSS feed is intended for personal feed reading. That fits one person reviewing headlines privately. If the bot is ever opened to more users or used commercially at scale, switch to a licensed news API.
