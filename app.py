@@ -6,6 +6,7 @@ drafts the post -> scores the draft on 7 criteria and attaches news sources.
 It replies in the same chat and never posts anywhere.
 """
 
+import asyncio
 import hmac
 import html
 import logging
@@ -22,6 +23,7 @@ from fastapi.responses import JSONResponse
 from drafting import (CRITERIA, DraftError, overall, score_draft, substance_capped, transcribe, triage,
                       write_draft)
 from news import search_news
+from research import research
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
@@ -101,11 +103,40 @@ class Telegram:
         return r.content
 
 
-async def build_report(note: str, draft, news) -> str:
+async def _nothing() -> list:
+    return []
+
+
+def sources_section(draft, news, facts) -> list:
+    """Where the draft's information came from: the note, sourced facts, and any news hook."""
+    esc = html.escape
+    lines = ["<b>Where the data came from</b>", "• Skinstinct figures and experience: your note."]
+    by_fact = {fact.id: fact for fact in facts}
+    n = 0
+    for fact_id in draft.fact_ids:
+        fact = by_fact[fact_id]
+        links = ", ".join(f'<a href="{esc(url, quote=True)}">{esc(title)}</a>' for title, url in fact.sources)
+        n += 1
+        lines.append(f"{n}. {esc(fact.text)}\n    Source: {links}")
+    if draft.news_hook_used:
+        by_news = {item.id: item for item in news}
+        for source_id in draft.source_ids:
+            item = by_news[source_id]
+            n += 1
+            lines.append(f'{n}. News hook: <a href="{esc(item.link, quote=True)}">{esc(item.title)}</a>\n'
+                         f"    {esc(item.publisher)}, {esc(item.date)}")
+    if n == 0:
+        lines.append("• No outside facts or news were used; everything else is general explanation "
+                     "or marked [VERIFY].")
+    return lines
+
+
+async def build_report(note: str, draft, news, facts) -> str:
     esc = html.escape
     lines = []
     try:
-        card = await score_draft(note, draft.post)
+        used = [fact for fact in facts if fact.id in draft.fact_ids]
+        card = await score_draft(note, draft.post, used)
         lines.append(f"<b>Draft score: {overall(card)}/10</b>")
         if substance_capped(card):
             lines.append("(Held down by Worth posting or Evidence: the overall can't be more than "
@@ -119,15 +150,8 @@ async def build_report(note: str, draft, news) -> str:
             lines += [f"• {esc(claim)}" for claim in card.unsupported_claims]
     except DraftError as e:
         lines.append(esc(str(e)))
-    if draft.news_hook_used:
-        by_id = {item.id: item for item in news}
-        lines.append("\n<b>News hook sources</b> (cross-check before publishing):")
-        for n, source_id in enumerate(draft.source_ids, start=1):
-            item = by_id[source_id]
-            link = html.escape(item.link, quote=True)
-            lines.append(f'{n}. <a href="{link}">{esc(item.title)}</a>\n    {esc(item.publisher)}, {esc(item.date)}')
-    else:
-        lines.append("\nNo news hook used.")
+    lines.append("")
+    lines += sources_section(draft, news, facts)
     lines.append("\nResolve every [VERIFY] before posting on LinkedIn.")
     return "\n".join(lines)
 
@@ -187,21 +211,26 @@ async def handle_message(tg: Telegram, message: dict) -> None:
             )
             return
 
-        # 2. Context (Google News): recent headlines that could serve as a hook.
-        news = await search_news(check.news_query) if check.news_query else []
+        # 2. Context: recent Google News headlines for a hook, and sourced outside facts (Google Search),
+        # fetched side by side.
+        news, facts = await asyncio.gather(
+            search_news(check.news_query) if check.news_query else _nothing(),
+            research(note),
+        )
         if check.news_query:
             found = f"{len(news)} headlines found" if news else "nothing found, drafting without a hook"
             verdict += f'\nNews search: "{check.news_query}" ({found})'
-        await tg.send(chat_id, f"{verdict}\n\nWriting the draft. This can take a minute...")
+        verdict += f"\nSourced facts found: {len(facts)}"
+        await tg.send(chat_id, f"{verdict}\n\nWriting the draft. This can take a minute or two...")
 
         # 3. Draft in Meera's voice.
         await tg.typing(chat_id)
-        draft = await write_draft(note, news)
+        draft = await write_draft(note, news, facts)
         await tg.send(chat_id, draft.post)
 
         # 4. Score the draft against the voice guide, and attach sources for any news hook.
         await tg.typing(chat_id)
-        await tg.send_html(chat_id, await build_report(note, draft, news))
+        await tg.send_html(chat_id, await build_report(note, draft, news, facts))
     except DraftError as e:
         log.warning("%s", e)
         await tg.send(chat_id, str(e))

@@ -10,7 +10,8 @@ A Telegram bot, hosted on Vercel, that turns Meera Pillai's voice notes and text
 | Input | Telegram + Gemini Flash | Telegram forwards it to this app. Voice notes are transcribed and the transcript is sent back. |
 | Processing | Gemini Flash (triage) | Scores the note 0 to 10 for publishability. Below `TRIAGE_MIN_SCORE` (default 5), the bot replies with the reason and what's missing, and stops. It also suggests a Google News search. |
 | Context | Google News | Searches recent headlines (India edition, last 30 days first) for a timely hook. |
-| AI | Gemini Pro (draft) | Writes one post in Meera's voice (`meera_voice.txt`). It uses a headline as a hook only if one genuinely fits. |
+| Context | Gemini Flash + Google Search (research) | Runs alongside the news search. Finds the outside facts the post needs (mechanisms, thresholds, standards, studies), each tied to the web pages it came from. |
+| AI | Gemini Pro (draft) | Writes one post in Meera's voice (`meera_voice.txt`). Outside facts may come **only** from the researched list, not from memory. It uses a headline as a hook only if one genuinely fits. |
 | AI | Gemini Pro (scorecard) | Scores the draft on 7 fixed criteria and lists any claims the note doesn't support. |
 | Output | Meera (review gate) | Reviews, edits, and publishes on LinkedIn herself. **The bot never posts.** |
 
@@ -34,7 +35,7 @@ Only the Telegram user in `ALLOWED_TELEGRAM_USER_ID` gets replies. Messages from
      6. **Skinstinct honesty**: a cost, limit or mistake rather than a pitch, no named competitors, and blame on systems rather than people. Each invented claim costs 1 point.
      7. **Voice and language**: British spelling, no hype or wellness words, and terms like "clean" only in quotes.
    - **"Not in the note, check these"**: any claim about Skinstinct or Meera that the note didn't contain and that isn't marked `[VERIFY]`.
-   - **News hook sources**: when a news hook is used, the 2 most relevant articles as clickable headlines, with publisher and date, so Meera can cross-check them.
+   - **Where the data came from**: Skinstinct figures are labelled as coming from Meera's note. Each outside fact the draft used is listed with up to 2 clickable source pages. If a news hook was used, its 2 most relevant articles are listed with publisher and date.
 
 Word count, paragraph count, exclamation marks, hashtags, list lines and `[VERIFY]` markers are counted in code and given to the scorer, so the format score doesn't depend on the model counting. Scoring runs at temperature 0 on Gemini Pro. In testing, the same draft got the same score on repeated runs.
 
@@ -45,9 +46,10 @@ Word count, paragraph count, exclamation marks, hashtags, list lines and `[VERIF
 | `app.py` | The Vercel entrypoint (FastAPI). Receives Telegram messages at `/api/telegram` and replies. `/` is a health check. |
 | `drafting.py` | The Gemini calls: transcription, triage, drafting and scoring, including all the prompts and the scoring criteria. |
 | `news.py` | Google News search for the hook. |
+| `research.py` | Researches the sourced outside facts (Gemini + Google Search) and resolves the source links. |
 | `meera_voice.txt` | The voice guide. Edit it to change the voice, then redeploy. |
 | `scripts/set_webhook.py` | One-off script that tells Telegram where the app lives. |
-| `vercel.json` | Allows each request up to 300 seconds (a note usually takes 60 to 90 seconds end to end). |
+| `vercel.json` | Allows each request up to 300 seconds (a note usually takes about 2 minutes end to end). |
 | `requirements.txt`, `.python-version` | Dependencies and Python 3.12 for Vercel. |
 | `.env.example` | The environment variables the app needs. |
 
@@ -113,6 +115,7 @@ It should print `Webhook was set`. Send the bot a message in Telegram and the dr
 
 - Resolve every `[VERIFY]` before publishing.
 - Treat the **"Not in the note, check these"** list seriously. Gemini sometimes adds plausible Skinstinct details, and the scorer flags the ones it can find.
+- The source links are the pages Google Search returned for each fact. They're usually journals, PubMed or regulators, but sometimes a brand blog. Open the link before relying on a fact.
 - News hooks are chosen from **headlines only**. Open both sources and confirm the story says what the post claims.
 - Google News links go through a Google redirect to the publisher's article.
 - The Google News RSS feed is intended for personal feed reading. That fits one person reviewing headlines privately. If the bot is ever opened to more users or used commercially at scale, switch to a licensed news API.

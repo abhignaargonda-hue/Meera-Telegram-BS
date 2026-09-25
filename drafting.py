@@ -133,6 +133,7 @@ async def triage(note: str) -> Triage:
 
 class Draft(BaseModel):
     post: str
+    fact_ids: List[int]
     news_hook_used: bool
     source_ids: List[int]
 
@@ -148,10 +149,13 @@ post needs such a detail to follow the structure, write a short placeholder like
 must carry [VERIFY]. General science explanation is fine; claims about what Skinstinct did or saw are
 not, unless they are in the note.
 
+{facts_block}
+
 {news_block}
 
 Return:
 - post: the post text only, paragraphs separated by a blank line. No title, preamble or notes.
+- fact_ids: the numbers of every sourced fact [F#] the post uses. Empty list if none.
 - news_hook_used: true only if the post refers to one of the news items.
 - source_ids: if news_hook_used, the ids of the TWO items most relevant to the hook (the one the post
   relies on first, then the best corroborating one). Otherwise an empty list.
@@ -159,6 +163,17 @@ Return:
 <note>
 {note}
 </note>"""
+
+FACTS_BLOCK = """Sourced outside facts, each found on a web page Meera will get a link to:
+{items}
+
+Outside facts (science mechanisms, thresholds, regulations, statistics, studies) may come ONLY from this
+list. Do not add outside facts from memory: if the post needs one that is not listed, leave it out or
+write a [VERIFY: ...] placeholder. Keep numbers exactly as listed. Still mark named studies and
+statistics [VERIFY] as the voice guide requires."""
+
+NO_FACTS_BLOCK = """No sourced outside facts are available. Do not state specific outside facts (studies, statistics,
+regulations, thresholds) from memory; use [VERIFY: ...] placeholders where the post needs one."""
 
 NEWS_BLOCK = """Recent Google News headlines that might give the post a timely hook:
 {items}
@@ -168,14 +183,20 @@ the way the voice guide requires (publisher, date, what it reports) and mark the
 You only have the headline, so do not state anything about the story beyond what the headline says."""
 
 
-async def write_draft(note: str, news: List[NewsItem]) -> Draft:
+async def write_draft(note: str, news: List[NewsItem], facts: list) -> Draft:
+    if facts:
+        facts_block = FACTS_BLOCK.format(items="\n".join(fact.for_prompt() for fact in facts))
+    else:
+        facts_block = NO_FACTS_BLOCK
     if news:
         news_block = NEWS_BLOCK.format(items="\n".join(item.for_prompt() for item in news))
     else:
         news_block = "No news items are available; do not use a news hook."
-    draft = await _ask_json("Drafting", DRAFT_MODEL, DRAFT_PROMPT.format(note=note, news_block=news_block),
+    draft = await _ask_json("Drafting", DRAFT_MODEL, DRAFT_PROMPT.format(note=note, facts_block=facts_block, news_block=news_block),
                             Draft, system=VOICE_GUIDE)
     draft.post = draft.post.strip()
+    known_facts = {fact.id for fact in facts}
+    draft.fact_ids = [i for i in dict.fromkeys(draft.fact_ids) if i in known_facts]
     valid = {item.id for item in news}
     draft.source_ids = [i for i in dict.fromkeys(draft.source_ids) if i in valid][:2]
     if not draft.source_ids:
@@ -260,6 +281,10 @@ is genuinely nothing to fix. Use the measured facts as given; do not recount.
 Measured facts about the draft:
 {facts}
 
+Outside facts in the draft that come from linked web sources (Meera gets the links). Count these as
+backed for the evidence criterion, as long as the draft states them as listed:
+{sourced}
+
 <original_note>
 {note}
 </original_note>
@@ -287,11 +312,12 @@ def _measure(post: str) -> str:
     ])
 
 
-async def score_draft(note: str, post: str) -> Scorecard:
+async def score_draft(note: str, post: str, sourced_facts: Optional[list] = None) -> Scorecard:
+    sourced = "\n".join(f"- {fact.text}" for fact in sourced_facts or []) or "- none"
     card = await _ask_json(
         "Scoring",
         SCORE_MODEL,
-        SCORE_PROMPT.format(facts=_measure(post), note=note, post=post),
+        SCORE_PROMPT.format(facts=_measure(post), sourced=sourced, note=note, post=post),
         Scorecard,
         system=VOICE_GUIDE,
         temperature=0,
