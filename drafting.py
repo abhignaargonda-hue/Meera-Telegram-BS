@@ -193,25 +193,29 @@ class Criterion(BaseModel):
 class Scorecard(BaseModel):
     # Listed before the scores so the model finds problems first, then scores against them.
     unsupported_claims: List[str]
-    opening: Criterion
+    worth_posting: Criterion
+    evidence: Criterion
+    structure: Criterion
     format: Criterion
     claim_fencing: Criterion
-    evidence: Criterion
     skinstinct_honesty: Criterion
     voice_and_language: Criterion
-    closing: Criterion
 
 
-# Fixed order and labels, so every scorecard reads the same way.
+# (key, label, weight). Fixed order, labels and weights, so every scorecard reads the same way.
+# Substance counts double: whether the post is worth posting and whether its claims are backed.
 CRITERIA = [
-    ("opening", "Opening"),
-    ("format", "Format"),
-    ("claim_fencing", "Claim fencing"),
-    ("evidence", "Evidence and accuracy"),
-    ("skinstinct_honesty", "Skinstinct honesty"),
-    ("voice_and_language", "Voice and language"),
-    ("closing", "Closing"),
+    ("worth_posting", "Worth posting", 2),
+    ("evidence", "Evidence", 2),
+    ("structure", "Structure", 1),
+    ("format", "Format", 1),
+    ("claim_fencing", "Claim fencing", 1),
+    ("skinstinct_honesty", "Skinstinct honesty", 1),
+    ("voice_and_language", "Voice and language", 1),
 ]
+# A weak post can't be rescued by style: the overall can be at most this far above the weaker of
+# Worth posting and Evidence.
+SUBSTANCE_MARGIN = 1
 
 SCORE_PROMPT = """Score this LinkedIn draft against Meera Pillai's voice guide (in your instructions).
 
@@ -222,24 +226,36 @@ draft, at most 15 words each. General science explanation does not count. Empty 
 
 Then score each of the 7 criteria from 0 to 10 using the definitions below, with a note of at most 15
 words naming the specific reason. Be strict and consistent. Start each criterion at 10 and deduct for
-every concrete problem you can point to; a solid first draft usually lands at 6-8 overall, and 10 means
-there is genuinely nothing to fix. Use the measured facts as given; do not recount.
+every concrete problem you can point to; a solid first draft usually lands at 6-8, and 10 means there
+is genuinely nothing to fix. Use the measured facts as given; do not recount.
 
-1. opening: first sentence is concrete (a number, a dated scene, or the reader's own product), never a
-   question or hook line; stakes stated plainly in the next sentence or two.
-2. format: 7-8 prose paragraphs, roughly 450-600 words; no bullets, headings, bold, emojis, hashtags or
+1. worth_posting: would a thoughtful reader (a skincare buyer, formulator or founder) come away with
+   something specific and non-obvious they did not know, or a concrete action they can take? The
+   insight must rest on real material from the note (Skinstinct's own data, experience or decision),
+   not on generic skincare explanation that any brand could post.
+   9-10: a specific, surprising insight from the note's own material, plus a clear action.
+   6-8:  a real point from the note, but partly generic or the action is weak.
+   3-5:  mostly generic education; the note's material is thin or peripheral.
+   0-2:  nothing a reader would miss if it were never posted.
+2. evidence: is every claim the post relies on actually backed? Skinstinct figures come from the note
+   with their time window and base; outside facts name a specific source (who, year, what was
+   measured); each technical claim has a mechanism and a specific number or threshold; evidence
+   strength is stated (solid / thinner / in-vitro only). Deduct 2 points for each item in
+   unsupported_claims. A [VERIFY] marker is honest, but it means the claim is not yet backed: if the
+   post's central argument depends on a [VERIFY] item, score no higher than 6; if it depends on three
+   or more, score no higher than 4.
+3. structure: first sentence is concrete (a number, a dated scene, or the reader's own product), never
+   a question or hook line, with the stakes stated plainly soon after; ends on what the reader can ask
+   for and how (in writing), or a plain statement of what Skinstinct does; no question to the
+   audience, call to buy or follow prompt.
+4. format: 7-8 prose paragraphs, roughly 450-600 words; no bullets, headings, bold, emojis, hashtags or
    exclamation marks; no greeting or sign-off.
-3. claim_fencing: at least one explicit "I'm not saying X. I'm saying Y." style move that limits the claim.
-4. evidence: every technical claim has a mechanism and a specific number or threshold; evidence
-   strength is stated; any number or fact not in the original note is marked [VERIFY]; nothing is
-   invented about Skinstinct. Deduct 2 points for each item in unsupported_claims.
-5. skinstinct_honesty: Skinstinct appears with a cost, limit or mistake, not as a pitch; no competitor
+5. claim_fencing: at least one explicit "I'm not saying X. I'm saying Y." style move that limits the claim.
+6. skinstinct_honesty: Skinstinct appears with a cost, limit or mistake, not as a pitch; no competitor
    is named; blame falls on systems, not people. Deduct 1 point for each item in unsupported_claims.
-6. voice_and_language: British spelling; terms like "clean", "natural", "clinically tested" only in
+7. voice_and_language: British spelling; terms like "clean", "natural", "clinically tested" only in
    quotes and examined; no wellness or hype language; no fear or triumph; nothing that could sit in a
    generic skincare ad.
-7. closing: ends on what the reader can ask for and how (in writing), or a plain statement of what
-   Skinstinct does; no question to the audience, call to buy or follow prompt.
 
 Measured facts about the draft:
 {facts}
@@ -280,11 +296,25 @@ async def score_draft(note: str, post: str) -> Scorecard:
         system=VOICE_GUIDE,
         temperature=0,
     )
-    for key, _ in CRITERIA:
+    for key, _, _ in CRITERIA:
         criterion = getattr(card, key)
         criterion.score = max(0, min(10, criterion.score))
     return card
 
 
+def _weighted(card: Scorecard) -> float:
+    total = sum(getattr(card, key).score * weight for key, _, weight in CRITERIA)
+    return round(total / sum(weight for _, _, weight in CRITERIA), 1)
+
+
+def substance_cap(card: Scorecard) -> float:
+    return float(min(card.worth_posting.score, card.evidence.score) + SUBSTANCE_MARGIN)
+
+
+def substance_capped(card: Scorecard) -> bool:
+    return _weighted(card) > substance_cap(card)
+
+
 def overall(card: Scorecard) -> float:
-    return round(sum(getattr(card, key).score for key, _ in CRITERIA) / len(CRITERIA), 1)
+    """Weighted average (substance counts double), never more than 1 point above the weaker substance score."""
+    return min(_weighted(card), substance_cap(card))

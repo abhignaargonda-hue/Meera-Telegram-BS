@@ -24,15 +24,15 @@ Only the Telegram user in `ALLOWED_TELEGRAM_USER_ID` gets replies. Messages from
 2. The triage score, its reason, and the news search used.
 3. The draft, as a message on its own so it's easy to copy.
 4. A scorecard:
-   - **Draft score** out of 10: the average of the 7 criteria below.
-   - **7 criteria**, each scored 0 to 10 with a one-line reason. They're taken from the checklist in the voice guide:
-     1. **Opening**: the first sentence is concrete (a number, a dated scene, or the reader's product), not a question.
-     2. **Format**: 7 to 8 prose paragraphs, 450 to 600 words, with no bullets, emojis, hashtags, exclamation marks, greeting or sign-off.
-     3. **Claim fencing**: at least one "I'm not saying X. I'm saying Y." move.
-     4. **Evidence and accuracy**: a mechanism and a specific number for each claim, stated evidence strength, `[VERIFY]` on anything not in the note, and nothing invented.
-     5. **Skinstinct honesty**: a cost, limit or mistake rather than a pitch, no named competitors, and blame on systems rather than people.
-     6. **Voice and language**: British spelling, no hype or wellness words, and terms like "clean" only in quotes.
-     7. **Closing**: tells the reader what to ask for and how; no question to the audience and no call to buy.
+   - **Draft score** out of 10. This is a weighted average of the 7 criteria below. **Worth posting** and **Evidence** count double, and the overall score can't be more than 1 point above the weaker of those two. A post that isn't worth posting, or isn't backed, therefore can't score well on style alone.
+   - **7 criteria**, each scored 0 to 10 with a one-line reason. They're based on the voice guide:
+     1. **Worth posting** (counts double): would a reader learn something specific and non-obvious, or get a concrete action, based on Meera's real material rather than generic skincare explanation?
+     2. **Evidence** (counts double): is every claim backed? That means Skinstinct figures from the note (with time window), named outside sources, a mechanism and a number for each claim, and stated evidence strength. `[VERIFY]` is honest but unbacked: a central argument that rests on one `[VERIFY]` scores at most 6, and on three or more at most 4. Each invented claim costs 2 points.
+     3. **Structure**: a concrete first sentence (a number, a dated scene, or the reader's product), not a question. It ends on what the reader can ask for and how, with no question to the audience and no call to buy.
+     4. **Format**: 7 to 8 prose paragraphs, 450 to 600 words, with no bullets, emojis, hashtags, exclamation marks, greeting or sign-off.
+     5. **Claim fencing**: at least one "I'm not saying X. I'm saying Y." move.
+     6. **Skinstinct honesty**: a cost, limit or mistake rather than a pitch, no named competitors, and blame on systems rather than people. Each invented claim costs 1 point.
+     7. **Voice and language**: British spelling, no hype or wellness words, and terms like "clean" only in quotes.
    - **"Not in the note, check these"**: any claim about Skinstinct or Meera that the note didn't contain and that isn't marked `[VERIFY]`.
    - **News hook sources**: when a news hook is used, the 2 most relevant articles as clickable headlines, with publisher and date, so Meera can cross-check them.
 

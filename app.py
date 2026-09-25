@@ -19,7 +19,8 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-from drafting import CRITERIA, DraftError, overall, score_draft, transcribe, triage, write_draft
+from drafting import (CRITERIA, DraftError, overall, score_draft, substance_capped, transcribe, triage,
+                      write_draft)
 from news import search_news
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -106,9 +107,13 @@ async def build_report(note: str, draft, news) -> str:
     try:
         card = await score_draft(note, draft.post)
         lines.append(f"<b>Draft score: {overall(card)}/10</b>")
-        for key, label in CRITERIA:
+        if substance_capped(card):
+            lines.append("(Held down by Worth posting or Evidence: the overall can't be more than "
+                         "1 point above the weaker of the two.)")
+        for key, label, weight in CRITERIA:
             criterion = getattr(card, key)
-            lines.append(f"{esc(label)}: <b>{criterion.score}</b>/10. {esc(criterion.note)}")
+            counts = " (counts double)" if weight > 1 else ""
+            lines.append(f"{esc(label)}{counts}: <b>{criterion.score}</b>/10. {esc(criterion.note)}")
         if card.unsupported_claims:
             lines.append("\n<b>Not in the note, check these:</b>")
             lines += [f"• {esc(claim)}" for claim in card.unsupported_claims]
