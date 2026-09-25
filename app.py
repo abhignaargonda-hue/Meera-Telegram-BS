@@ -11,11 +11,13 @@ import html
 import logging
 import os
 import re
+import time
 from collections import deque
 from typing import Optional
 
 import httpx
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 
 from drafting import CRITERIA, DraftError, overall, score_draft, transcribe, triage, write_draft
 from news import search_news
@@ -40,6 +42,8 @@ app = FastAPI()
 # Telegram retries a delivery it thinks failed. Remember recent update IDs so a retry
 # landing on the same warm instance doesn't produce a second draft (best effort).
 _seen_updates: deque = deque(maxlen=200)
+# Last few outcomes, shown at /api/debug. Per instance, so it resets on cold starts.
+_events: deque = deque(maxlen=20)
 
 
 class Telegram:
@@ -201,6 +205,14 @@ async def handle_message(tg: Telegram, message: dict) -> None:
         await tg.send(chat_id, "Something unexpected went wrong while making the draft. Check the Vercel logs.")
 
 
+def _record(update_id, sender, outcome: str) -> dict:
+    event = {"time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()), "update_id": update_id,
+             "sender": sender, "outcome": outcome}
+    _events.append(event)
+    log.info("update %s from %s: %s", update_id, sender, outcome)
+    return event
+
+
 @app.post("/api/telegram")
 async def telegram_webhook(request: Request) -> Response:
     # Only Telegram knows the secret; it sends it in this header on every delivery.
@@ -211,21 +223,28 @@ async def telegram_webhook(request: Request) -> Response:
     update = await request.json()
     update_id = update.get("update_id")
     if update_id in _seen_updates:
-        return Response(status_code=200)
+        return JSONResponse(_record(update_id, None, "duplicate delivery, skipped"))
     _seen_updates.append(update_id)
 
     message = update.get("message")
     sender = (message or {}).get("from", {}).get("id")
-    if not message or ALLOWED_USER_ID is None or sender != ALLOWED_USER_ID:
-        return Response(status_code=200)  # Anyone other than the owner is silently ignored.
+    if not message:
+        return JSONResponse(_record(update_id, sender, "not a message, ignored"))
+    if ALLOWED_USER_ID is None:
+        return JSONResponse(_record(update_id, sender, "ignored: ALLOWED_TELEGRAM_USER_ID is not set"))
+    if sender != ALLOWED_USER_ID:
+        # Anyone other than the owner is silently ignored.
+        return JSONResponse(_record(update_id, sender, f"ignored: sender is not ALLOWED_TELEGRAM_USER_ID ({ALLOWED_USER_ID})"))
 
     # Always answer 200, even after a failure, so Telegram doesn't redeliver the same note.
     async with httpx.AsyncClient(timeout=60) as http:
         try:
             await handle_message(Telegram(http), message)
-        except Exception:
+            outcome = "handled"
+        except Exception as e:
             log.exception("Could not reply in Telegram")
-    return Response(status_code=200)
+            outcome = f"failed: {type(e).__name__}: {e}"
+    return JSONResponse(_record(update_id, sender, outcome))
 
 
 @app.get("/")
@@ -237,3 +256,24 @@ async def health() -> dict:
         "webhook_secret_set": bool(WEBHOOK_SECRET),
         "allowed_user_set": ALLOWED_USER_ID is not None,
     }
+
+
+@app.get("/api/debug")
+async def debug(request: Request) -> Response:
+    """What this deployment is actually configured with, and what happened to recent messages.
+    Protected by the webhook secret: send it in the X-Debug-Secret header."""
+    header = request.headers.get("x-debug-secret", "")
+    if not WEBHOOK_SECRET or not hmac.compare_digest(header, WEBHOOK_SECRET):
+        return Response(status_code=401)
+    async with httpx.AsyncClient(timeout=15) as http:
+        try:
+            me = await Telegram(http).call("getMe")
+            bot = f"@{me.get('username')} (id {me.get('id')})"
+        except Exception as e:
+            bot = f"token not working: {e}"
+    return JSONResponse({
+        "bot": bot,
+        "allowed_user_id": ALLOWED_USER_ID,
+        "allowed_user_id_raw_length": len(os.environ.get("ALLOWED_TELEGRAM_USER_ID", "")),
+        "recent_updates_on_this_instance": list(_events),
+    })
